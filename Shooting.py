@@ -1,6 +1,7 @@
 import pygame
 import os
 import sys
+import random
 
 
 def load_image(name, color_key=None):
@@ -15,9 +16,9 @@ def load_image(name, color_key=None):
     return image
 
 
-LEVELS = {  # длина поля уровня, количество препятсвий, скорость передвижения препятствий в пикселях
-    1: [(1500, 4000), 10, 3],
-    2: [{1500, 6000}, 18, 6]
+LEVELS = {  # длина поля уровня, количество препятсвий
+    1: [(1500, 4000), 10],
+    2: [{1500, 6000}, 18]
 }
 
 level = 1  # input
@@ -29,7 +30,8 @@ FPS = 50
 
 wall_image = load_image('background.jpg')
 player_image = load_image('player3.png')
-obstcl_images = [load_image('planet2.png'), load_image('meteorrain.png'), load_image('planet.png')]
+obstcl_images = [load_image('planet2.png'), load_image('meteor.png'), load_image('planet1.png'),
+                 load_image('meteor2.png')]
 
 
 class SpriteGroup(pygame.sprite.Group):
@@ -63,18 +65,22 @@ class BackGround(Sprite):  # Фон игры (космос)
 
 
 class Obstacles(Sprite):  # Препятствия
-    def __init__(self, image, y, speed):
+    def __init__(self, image):
         super().__init__(sprite_group)
         self.image = pygame.transform.scale(image, (100, 100))
-        self.rect = self.image.get_rect().move(0, y)
-        self.abs_pos = (self.rect.x, self.rect.y)
-        self.speed = speed
+        self.rect = self.image.get_rect()
+        self.rect.x = random.randrange(WIDTH - self.rect.width)
+        self.rect.y = random.randrange(-200, -50)
+        self.speed = random.randrange(1, 8)
+        self.sdv_x = random.randrange(-2, 4)
 
     def update(self):
-        self.rect.x += self.speed
-        if self.rect.left > WIDTH:
-            self.rect.right = 0
-        self.rect.y += 2
+        self.rect.y += self.speed
+        self.rect.x += self.sdv_x
+        if self.rect.top > HEIGHT:
+            self.rect.x = random.randrange(WIDTH - self.rect.width)
+            self.rect.y = random.randrange(-200, -50)
+            self.sdv_x = random.randrange(-2, 4)
 
 
 class Player(Sprite):  # Класс игрока (космический корабль)
@@ -113,11 +119,9 @@ player = Player(hero_group)
 
 back = BackGround(LEVELS[level][0])
 
-
 for i in range(LEVELS[level][1]):  # количество препятсвий
-    speed = LEVELS[level][2]  # скорость препятствий
-    y = -i * (LEVELS[level][0][1] / (LEVELS[level][1] + 2))
-    obs = Obstacles(obstcl_images[i], y, speed)  # создаём препятсвие
+    j = i % len(obstcl_images)
+    obs = Obstacles(obstcl_images[j])  # создаём препятсвие
 
 
 def terminate():
@@ -128,7 +132,6 @@ def terminate():
 MYEVENTTYPE = pygame.USEREVENT + 1
 pygame.time.set_timer(MYEVENTTYPE, 50)
 
-sit = True
 clock = pygame.time.Clock()
 
 running = True
