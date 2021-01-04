@@ -17,11 +17,9 @@ def load_image(name, color_key=None):
 
 
 LEVELS = {  # длина поля уровня, количество препятсвий
-    1: [(1500, 4000), 10],
-    2: [{1500, 6000}, 18]
+    1: [(1500, 4000), 10, 2],
+    2: [(1500, 8000), 15, 4]
 }
-
-level = 1  # input
 
 pygame.init()
 screen_size = WIDTH, HEIGHT = 1500, 700
@@ -54,15 +52,16 @@ class Sprite(pygame.sprite.Sprite):
 
 
 class BackGround(Sprite):  # Фон игры (космос)
-    def __init__(self, size):
+    def __init__(self, size, speed):
         super().__init__(sprite_group)
         self.image = pygame.transform.scale(wall_image, size)
         self.rect = self.image.get_rect().move(0, 700 - size[1])
         self.abs_pos = (self.rect.x, self.rect.y)
+        self.speed = speed
 
     def update(self):  # Движение фона
         if self.rect.y < 0:
-            self.rect.y += 2
+            self.rect.y += self.speed
 
 
 class Obstacles(Sprite):  # Класс Препятствие
@@ -137,14 +136,10 @@ class Bullet(pygame.sprite.Sprite):  # Класс Пули
 sprite_group = SpriteGroup()
 obs_group = SpriteGroup()
 hero_group = SpriteGroup()
+text_group = SpriteGroup()
 bull_group = SpriteGroup()
 
-player = Player(hero_group)  # Создаём игрока - космический корабль
-back = BackGround(LEVELS[level][0])  # Создаём фон - звездное небо
-
-for i in range(LEVELS[level][1]):  # Создаем нуэное количество препятствий
-    j = i % len(obstcl_images)
-    obs = Obstacles(obstcl_images[j])
+clock = pygame.time.Clock()
 
 
 def terminate():
@@ -152,7 +147,90 @@ def terminate():
     sys.exit()
 
 
-clock = pygame.time.Clock()
+class Text(pygame.sprite.Sprite):
+    def __init__(self, font, text, x, y, color):
+        super().__init__(text_group)
+        self.color_copy = color
+        self.font = font
+        self.text = text
+        self.color = color
+        self.string_rendered = self.font.render(self.text, True, self.color)
+        self.intro_rect = self.string_rendered.get_rect()
+        self.intro_rect.y = y
+        self.intro_rect.x = x
+        self.sit = True
+
+    def update(self):
+        if not self.sit:
+            self.color = pygame.Color('#FF3333')
+        else:
+            self.color = self.color_copy
+        self.string_rendered = self.font.render(self.text, True, self.color)
+
+
+def start_screen():
+    intro_text = ["GALAXY GAME", "",
+                  "",
+                  "Easy level", "",
+                  "",
+                  'Advanced level']
+
+    fon = pygame.transform.scale(load_image('splashscreen.jpg'), screen_size)
+    screen.blit(fon, (0, 0))
+    font = pygame.font.SysFont('Snap ITC', 48)
+    y = 200
+    x = 500
+    lines = []
+    for line in intro_text:
+        line1 = Text(font, line, x, y, pygame.Color('white'))
+        screen.blit(line1.string_rendered, line1.intro_rect)
+        x += 2
+        line2 = Text(font, line, x, y, pygame.Color('#000033'))
+        screen.blit(line2.string_rendered, line2.intro_rect)
+        if line == intro_text[0]:
+            x += 40
+        y += 40
+        lines.append(line1)
+        lines.append(line2)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.MOUSEMOTION:
+                for rect in lines:
+                    if rect.text != intro_text[0] and rect.color != pygame.Color('white'):
+                        if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
+                                rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:
+                            rect.sit = False
+                        else:
+                            rect.sit = True
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                for rect in lines:
+                    if rect.text != intro_text[0] and rect.color != pygame.Color('white'):
+                        if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
+                                rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:
+                            if rect.text == 'Easy level':
+                                return 1
+                            else:
+                                return 2
+        screen.blit(fon, (0, 0))
+        for rect in lines:
+            rect.update()
+            screen.blit(rect.string_rendered, rect.intro_rect)
+        pygame.display.flip()
+        clock.tick(0)
+
+
+level = start_screen()
+
+player = Player(hero_group)  # Создаём игрока - космический корабль
+back = BackGround(LEVELS[level][0], LEVELS[level][2])  # Создаём фон - звездное небо
+
+for i in range(LEVELS[level][1]):  # Создаем нуэное количество препятствий
+    j = i % len(obstcl_images)
+    obs = Obstacles(obstcl_images[j])
 
 running = True
 while running:
