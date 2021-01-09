@@ -17,7 +17,7 @@ def load_image(name, color_key=None):
 
 
 LEVELS = {  # длина поля уровня, количество препятсвий
-    1: [(1500, 4000), 10, 2],
+    1: [(1500, 4000), 10, 1],
     2: [(1500, 8000), 15, 4]
 }
 
@@ -65,13 +65,13 @@ class BackGround(Sprite):  # Фон игры (космос)
 
 
 class Obstacles(Sprite):  # Класс Препятствие
-    def __init__(self, image):
+    def __init__(self, image, speed_min):  # Изображение препятствия, минимальная его скорость
         super().__init__(obs_group)
         self.image = pygame.transform.scale(image, (100, 100))
         self.rect = self.image.get_rect()
         self.rect.x = random.randrange(WIDTH - self.rect.width)
         self.rect.y = random.randrange(-200, -50)
-        self.speed = random.randrange(1, 8)
+        self.speed = random.randrange(speed_min, 8)
         self.sdv_x = random.randrange(-2, 4)
 
     def update(self):  # Движение спрайтов
@@ -84,11 +84,13 @@ class Obstacles(Sprite):  # Класс Препятствие
 
 
 class Player(Sprite):  # Класс игрока (космический корабль)
-    def __init__(self, hero_group):
+    def __init__(self):
         super().__init__(hero_group)
         self.image = pygame.transform.scale(player_image, (150, 150))
         self.rect = self.image.get_rect().move(750, 550)
         self.pos = (self.rect.x, self.rect.y)
+        self.lives = 5
+        self.points = 0
 
     def update(self):  # Управление игроком (космическим кораблём)
         self.speedx = 0
@@ -109,17 +111,15 @@ class Player(Sprite):  # Класс игрока (космический кор�
             self.rect.right = WIDTH
         if self.rect.left < 0:
             self.rect.left = 0
-        if self.rect.top > HEIGHT:  # Если игрок остался снизу за полем, то он проиграл
-            pass  # Проиграл
 
-    def upbull(self):  # Функция выстрела, создание вылетающей пули
+    def upbull(self):  # Функция выстрела, создание пули
         bullet = Bullet(self.rect.centerx, self.rect.top)
         sprite_group.add(bullet)
         bull_group.add(bullet)
 
 
 class Bullet(pygame.sprite.Sprite):  # Класс Пули
-    def __init__(self, x, y):
+    def __init__(self, x, y):  # Первоначальные координаты пули
         super().__init__(bull_group)
         self.image = pygame.transform.scale(bullet_image, (40, 40))
         self.rect = self.image.get_rect()
@@ -127,27 +127,13 @@ class Bullet(pygame.sprite.Sprite):  # Класс Пули
         self.rect.centerx = x
         self.speedy = -10
 
-    def update(self):
+    def update(self):  # Движение пули
         self.rect.y += self.speedy
         if self.rect.bottom < 0:  # Если пуля вышла за края поля, убираем её
             self.kill()
 
 
-sprite_group = SpriteGroup()
-obs_group = SpriteGroup()
-hero_group = SpriteGroup()
-text_group = SpriteGroup()
-bull_group = SpriteGroup()
-
-clock = pygame.time.Clock()
-
-
-def terminate():
-    pygame.quit()
-    sys.exit()
-
-
-class Text(pygame.sprite.Sprite):
+class Text(pygame.sprite.Sprite):  # Класс текста
     def __init__(self, font, text, x, y, color):
         super().__init__(text_group)
         self.color_copy = color
@@ -160,7 +146,7 @@ class Text(pygame.sprite.Sprite):
         self.intro_rect.x = x
         self.sit = True
 
-    def update(self):
+    def update(self):  # Обработка изменения цвета текста при наведении на него мыши
         if not self.sit:
             self.color = pygame.Color('#FF3333')
         else:
@@ -168,7 +154,7 @@ class Text(pygame.sprite.Sprite):
         self.string_rendered = self.font.render(self.text, True, self.color)
 
 
-def start_screen():
+def start_screen():  # Главный экран
     intro_text = ["GALAXY GAME", "",
                   "",
                   "Easy level", "",
@@ -197,43 +183,131 @@ def start_screen():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            elif event.type == pygame.MOUSEMOTION:
+            elif event.type == pygame.MOUSEMOTION:  # Если пошевелили мышью
                 for rect in lines:
-                    if rect.text != intro_text[0] and rect.color != pygame.Color('white'):
+                    if rect.text != intro_text[0] and rect.color != pygame.Color('white'):  # Если навели на текст,
+                        # на который можем нажать, меняем цвет этого текста
                         if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
                                 rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:
                             rect.sit = False
                         else:
                             rect.sit = True
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.MOUSEBUTTONDOWN:  # Нажатие мышью
                 for rect in lines:
                     if rect.text != intro_text[0] and rect.color != pygame.Color('white'):
                         if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
-                                rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:
+                                rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:  # В соотвествии
+                            # с нажатым текстом, определяем уровень игрока
                             if rect.text == 'Easy level':
                                 return 1
-                            else:
+                            elif rect.text == 'Advanced level':
                                 return 2
         screen.blit(fon, (0, 0))
         for rect in lines:
             rect.update()
             screen.blit(rect.string_rendered, rect.intro_rect)
         pygame.display.flip()
-        clock.tick(0)
+        clock.tick(FPS)
 
 
-level = start_screen()
+def gameover_screen(points, text):  # Экран окончания игры -> Нужно вывести количество набранных за игру очков и
+    # текст прошел или не прошел игрок уровень
+    intro_text = ['GAME OVER', "",
+                  "",
+                  text, '',
+                  '',
+                  f"POINTS: {points}", "",
+                  "",
+                  "Start over", "",
+                  "",
+                  'Go back to the main page', "",
+                  "",
+                  'Exit']
 
-player = Player(hero_group)  # Создаём игрока - космический корабль
-back = BackGround(LEVELS[level][0], LEVELS[level][2])  # Создаём фон - звездное небо
+    fon = pygame.transform.scale(load_image('splashscreen.jpg'), screen_size)
+    screen.blit(fon, (0, 0))
+    font = pygame.font.SysFont('Snap ITC', 48)
+    y = 100
+    x = 600
+    lines = []
+    for line in intro_text:  # Создаем и выводим нужный текст
+        line1 = Text(font, line, x, y, pygame.Color('white'))
+        screen.blit(line1.string_rendered, line1.intro_rect)
+        x += 2
+        line2 = Text(font, line, x, y, pygame.Color('#000033'))
+        screen.blit(line2.string_rendered, line2.intro_rect)
+        if line == intro_text[0]:
+            x -= 150
+        y += 40
+        lines.append(line1)
+        lines.append(line2)
 
-for i in range(LEVELS[level][1]):  # Создаем нуэное количество препятствий
-    j = i % len(obstcl_images)
-    obs = Obstacles(obstcl_images[j])
+    runn = True
+    while runn:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+            elif event.type == pygame.MOUSEMOTION:
+                for rect in lines:
+                    if rect.text not in intro_text[:9] and rect.color != pygame.Color(
+                            'white'):  # Если навели на текст,
+                        # на который можем нажать, меняем цвет этого текста
+                        if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
+                                rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:
+                            rect.sit = False
+                        else:
+                            rect.sit = True
+            elif event.type == pygame.MOUSEBUTTONDOWN:  # В соотвествии
+                # с нажатым текстом, определяем дальнейшие действия игры
+                for rect in lines:
+                    if rect.text not in intro_text[:9] and rect.color != pygame.Color('white'):
+                        if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
+                                rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:
+                            if rect.text == 'Start over':
+                                runn = False
+                            elif rect.text == 'Go back to the main page':
+                                return 'new'
+                            elif rect.text == 'Exit':
+                                pygame.quit()
+        screen.blit(fon, (0, 0))
+        for rect in lines:
+            rect.update()
+            screen.blit(rect.string_rendered, rect.intro_rect)
+        pygame.display.flip()
+        clock.tick(FPS)
 
+
+def terminate():
+    pygame.quit()
+    sys.exit()
+
+
+clock = pygame.time.Clock()
+
+screen_need = True  # Переменная указывающая нужен ли выбор уровня
+game_over = True  # Переменная о состоянии игры, если игрок умер нужно обновляться
 running = True
 while running:
+    if game_over:  # Если игра только началась/перезапускается обновляем все элементы игры
+        sprite_group = SpriteGroup()
+        text_group = SpriteGroup()
+        obs_group = SpriteGroup()
+        hero_group = SpriteGroup()
+        bull_group = SpriteGroup()
+        hearts_group = SpriteGroup()
+
+        if screen_need:  # Если игрок снова выбирает уровень
+            level = start_screen()
+            screen_need = False
+
+        player = Player()  # Создаём игрока - космический корабль
+        back = BackGround(LEVELS[level][0], LEVELS[level][2])  # Создаём фон - звездное небо
+
+        for i in range(LEVELS[level][1]):  # Создаем нужное количество препятствий
+            j = i % len(obstcl_images)
+            obs = Obstacles(obstcl_images[j], LEVELS[level][2])
+        game_over = False
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -247,15 +321,26 @@ while running:
     back.update()
     bull_group.update()
 
+    if back.rect.y == 0 and player.rect.y <= 0:  # Игрок выиграл
+        gameover_screen(player.points, 'Happy! You have passed this level!')
+
     proverka_bullet = pygame.sprite.groupcollide(obs_group, bull_group, True,
                                                  True)  # Проверяем попала ли пуля в препятствие
     if proverka_bullet:  # Если попали, то нужно создать новые препятствия вместо удаленных
         for _ in range(len(proverka_bullet)):
-            obs_group.add(Obstacles(obstcl_images[random.randrange(len(obstcl_images))]))
+            obs_group.add(Obstacles(obstcl_images[random.randrange(len(obstcl_images))], LEVELS[level][2]))
+            player.points += 10  # зачисляем игроку очки, за каждое препятствие 10 очков
 
-    if pygame.sprite.spritecollide(player, obs_group,
-                                   False):  # Проверяем врезался ли наш игрок в препятсвие, если да - игра заканчивается
-        pass  # проигрыш
+    hits = pygame.sprite.spritecollide(player, obs_group, True, pygame.sprite.collide_circle)
+    if hits:  # Проверяем врезался ли наш игрок в препятствие
+        for _ in hits:
+            player.lives -= 1
+        if player.lives == 0:  # Если жизни игрока закончились, игра заканчивается - игрок проиграл
+            game_over = True
+            sit = gameover_screen(player.points, 'Oh.. Try again!')
+            if sit == 'new':  # Если sit == 'new', то игрок выбрал вернуться на главную страницу ->
+                # уровень выбирается заново; если sit is None, то игрок начал заново или вышел из игры
+                screen_need = True
 
     # Отрисовываем игру
     screen.fill(pygame.Color("black"))
