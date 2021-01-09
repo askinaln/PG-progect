@@ -32,6 +32,7 @@ obstcl_images = [load_image('planet2.png'), load_image('meteor.png'), load_image
                  load_image('meteor2.png')]  # Фото препятствий
 bullet_image = load_image('bullet.png')  # Фото пули
 heart_image = load_image('heart.png')  # Фото сердца - жизней
+fire_image = load_image("bullet.png")  # Фото частиц взрыва
 
 
 class SpriteGroup(pygame.sprite.Group):
@@ -162,6 +163,38 @@ class Live(pygame.sprite.Sprite):  # Класс Пули
         self.rect = self.image.get_rect()
         self.rect.y = y
         self.rect.x = x
+
+
+class Particle(pygame.sprite.Sprite):
+    fire = [fire_image]
+    for scale in (5, 10, 15):
+        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
+
+    def __init__(self, pos, dx, dy):
+        super().__init__(prt_group)
+        self.image = random.choice(self.fire)
+        self.rect = self.image.get_rect()
+
+        self.velocity = [dx, dy]
+        self.rect.x, self.rect.y = pos
+
+        self.gravity = 1
+
+    def update(self):
+        self.velocity[1] += self.gravity
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+        if not self.rect.colliderect((0, 0, WIDTH, HEIGHT)):
+            self.kill()
+
+
+def create_particles(position):
+    # количество создаваемых частиц
+    particle_count = 20
+    # возможные скорости
+    numbers = range(-5, 6)
+    for _ in range(particle_count):
+        Particle(position, random.choice(numbers), random.choice(numbers))
 
 
 def start_screen():  # Главный экран
@@ -305,6 +338,7 @@ while running:
         hero_group = SpriteGroup()
         bull_group = SpriteGroup()
         hearts_group = SpriteGroup()
+        prt_group = SpriteGroup()
 
         if screen_need:  # Если игрок снова выбирает уровень
             level = start_screen()
@@ -335,6 +369,7 @@ while running:
     obs_group.update()
     back.update()
     bull_group.update()
+    prt_group.update()
 
     if back.rect.y == 0 and player.rect.y <= 0:  # Игрок выиграл
         gameover_screen(player.points, 'Happy! You have passed this level!')
@@ -342,6 +377,8 @@ while running:
     proverka_bullet = pygame.sprite.groupcollide(obs_group, bull_group, True,
                                                  True)  # Проверяем попала ли пуля в препятствие
     if proverka_bullet:  # Если попали, то нужно создать новые препятствия вместо удаленных
+        for obs in proverka_bullet:
+            create_particles((obs.rect.x, obs.rect.y))
         for _ in range(len(proverka_bullet)):
             obs_group.add(Obstacles(obstcl_images[random.randrange(len(obstcl_images))], LEVELS[level][2]))
             player.points += 10  # зачисляем игроку очки, за каждое препятствие 10 очков
@@ -362,6 +399,7 @@ while running:
     screen.fill(pygame.Color("black"))
     sprite_group.draw(screen)
     hearts_group.draw(screen)
+    prt_group.draw(screen)
     obs_group.draw(screen)
     hero_group.draw(screen)
     clock.tick(FPS)
