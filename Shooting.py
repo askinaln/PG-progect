@@ -33,6 +33,7 @@ obstcl_images = [load_image('planet2.png'), load_image('meteor.png'), load_image
 bullet_image = load_image('bullet.png')  # Фото пули
 heart_image = load_image('heart.png')  # Фото сердца - жизней
 fire_image = load_image("bullet.png")  # Фото частиц взрыва
+vsp_image = load_image('vspishka.png')
 
 
 class SpriteGroup(pygame.sprite.Group):
@@ -166,12 +167,13 @@ class Live(pygame.sprite.Sprite):  # Класс Пули
 
 
 class Particle(pygame.sprite.Sprite):
-    fire = [fire_image]
-    for scale in (5, 10, 15):
-        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
-
-    def __init__(self, pos, dx, dy):
+    def __init__(self, pos, dx, dy, image):
         super().__init__(prt_group)
+
+        self.fire = [image]
+        for scale in (5, 10, 15):
+            self.fire.append(pygame.transform.scale(self.fire[0], (scale, scale)))
+
         self.image = random.choice(self.fire)
         self.rect = self.image.get_rect()
 
@@ -188,13 +190,13 @@ class Particle(pygame.sprite.Sprite):
             self.kill()
 
 
-def create_particles(position):
+def create_particles(position, image):
     # количество создаваемых частиц
     particle_count = 20
     # возможные скорости
     numbers = range(-5, 6)
     for _ in range(particle_count):
-        Particle(position, random.choice(numbers), random.choice(numbers))
+        Particle(position, random.choice(numbers), random.choice(numbers), image)
 
 
 def start_screen():  # Главный экран
@@ -202,7 +204,9 @@ def start_screen():  # Главный экран
                   "",
                   "Easy level", "",
                   "",
-                  'Advanced level']
+                  'Advanced level', '',
+                  '',
+                  'Exit']
 
     fon = pygame.transform.scale(load_image('splashscreen.jpg'), screen_size)
     screen.blit(fon, (0, 0))
@@ -245,6 +249,8 @@ def start_screen():  # Главный экран
                                 return 1
                             elif rect.text == 'Advanced level':
                                 return 2
+                            elif rect.text == 'Exit':
+                                pygame.quit()
         screen.blit(fon, (0, 0))
         for rect in lines:
             rect.update()
@@ -327,6 +333,7 @@ def terminate():
 
 clock = pygame.time.Clock()
 
+pause = False
 screen_need = True  # Переменная указывающая нужен ли выбор уровня
 game_over = True  # Переменная о состоянии игры, если игрок умер нужно обновляться
 running = True
@@ -347,8 +354,11 @@ while running:
         player = Player()  # Создаём игрока - космический корабль
         back = BackGround(LEVELS[level][0], LEVELS[level][2])  # Создаём фон - звездное небо
 
+        font = pygame.font.SysFont('Snap ITC', 48)
+        text = Text(font, '0000', 5, 70, pygame.Color('white'))
+
         x, y = 5, 5
-        for _ in range(player.lives):
+        for _ in range(player.lives):  # Создаем видимые для игрока жизни
             live = Live(x, y)
             x += 65
 
@@ -363,45 +373,52 @@ while running:
         elif event.type == pygame.KEYDOWN:  # Нажатие на пробел - Выстрел
             if event.key == pygame.K_SPACE:
                 player.upbull()
+            if event.key == pygame.K_q:
+                pause = not pause
 
-    # Обновляем все группы спрайтов
-    hero_group.update()
-    obs_group.update()
-    back.update()
-    bull_group.update()
-    prt_group.update()
+    if not pause:
+        # Обновляем все группы спрайтов
+        hero_group.update()
+        obs_group.update()
+        back.update()
+        bull_group.update()
+        prt_group.update()
 
-    if back.rect.y == 0 and player.rect.y <= 0:  # Игрок выиграл
-        gameover_screen(player.points, 'Happy! You have passed this level!')
+        if back.rect.y == 0 and player.rect.y <= 0:  # Игрок выиграл
+            gameover_screen(player.points, 'Happy! You have passed this level!')
 
-    proverka_bullet = pygame.sprite.groupcollide(obs_group, bull_group, True,
-                                                 True)  # Проверяем попала ли пуля в препятствие
-    if proverka_bullet:  # Если попали, то нужно создать новые препятствия вместо удаленных
-        for obs in proverka_bullet:
-            create_particles((obs.rect.x, obs.rect.y))
-        for _ in range(len(proverka_bullet)):
-            obs_group.add(Obstacles(obstcl_images[random.randrange(len(obstcl_images))], LEVELS[level][2]))
-            player.points += 10  # зачисляем игроку очки, за каждое препятствие 10 очков
+        proverka_bullet = pygame.sprite.groupcollide(obs_group, bull_group, True,
+                                                     True)  # Проверяем попала ли пуля в препятствие
+        if proverka_bullet:  # Если попали, то нужно создать новые препятствия вместо удаленных
+            for obs in proverka_bullet:
+                create_particles((obs.rect.x + 5, obs.rect.y + 5), fire_image)
+            for _ in range(len(proverka_bullet)):
+                obs_group.add(Obstacles(obstcl_images[random.randrange(len(obstcl_images))], LEVELS[level][2]))
+                player.points += 10  # зачисляем игроку очки, за каждое препятствие 10 очков
+            text.text = str(player.points).rjust(4, '0')
+            text.string_rendered = text.font.render(text.text, True, text.color)
 
-    hits = pygame.sprite.spritecollide(player, obs_group, True, pygame.sprite.collide_circle)
-    if hits:  # Проверяем врезался ли наш игрок в препятствие
-        for _ in hits:
-            player.lives -= 1
-            hearts_group.remove(hearts_group.sprites()[-1])
-        if player.lives == 0:  # Если жизни игрока закончились, игра заканчивается - игрок проиграл
-            game_over = True
-            sit = gameover_screen(player.points, 'Oh.. Try again!')
-            if sit == 'new':  # Если sit == 'new', то игрок выбрал вернуться на главную страницу ->
-                # уровень выбирается заново; если sit is None, то игрок начал заново или вышел из игры
-                screen_need = True
+        hits = pygame.sprite.spritecollide(player, obs_group, True, pygame.sprite.collide_circle)
+        if hits:  # Проверяем врезался ли наш игрок в препятствие
+            create_particles((player.rect.x + 10, player.rect.y + 10), vsp_image)
+            for _ in hits:
+                player.lives -= 1
+                hearts_group.remove(hearts_group.sprites()[-1])
+            if player.lives == 0:  # Если жизни игрока закончились, игра заканчивается - игрок проиграл
+                game_over = True
+                sit = gameover_screen(player.points, 'Oh.. Try again!')
+                if sit == 'new':  # Если sit == 'new', то игрок выбрал вернуться на главную страницу ->
+                    # уровень выбирается заново; если sit is None, то игрок начал заново или вышел из игры
+                    screen_need = True
 
     # Отрисовываем игру
     screen.fill(pygame.Color("black"))
     sprite_group.draw(screen)
-    hearts_group.draw(screen)
     prt_group.draw(screen)
     obs_group.draw(screen)
     hero_group.draw(screen)
+    hearts_group.draw(screen)
+    screen.blit(text.string_rendered, text.intro_rect)
     clock.tick(FPS)
     pygame.display.flip()
 pygame.quit()
