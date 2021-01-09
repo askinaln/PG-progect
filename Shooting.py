@@ -16,7 +16,7 @@ def load_image(name, color_key=None):
     return image
 
 
-LEVELS = {  # длина поля уровня, количество препятсвий
+LEVELS = {  # длина поля уровня, количество препятсвий, минимальная скорость препятствия
     1: [(1500, 4000), 10, 1],
     2: [(1500, 8000), 15, 4]
 }
@@ -31,6 +31,7 @@ player_image = load_image('player3.png')  # Фото игрока - космич
 obstcl_images = [load_image('planet2.png'), load_image('meteor.png'), load_image('planet1.png'),
                  load_image('meteor2.png')]  # Фото препятствий
 bullet_image = load_image('bullet.png')  # Фото пули
+heart_image = load_image('heart.png')  # Фото сердца - жизней
 
 
 class SpriteGroup(pygame.sprite.Group):
@@ -152,6 +153,15 @@ class Text(pygame.sprite.Sprite):  # Класс текста
         else:
             self.color = self.color_copy
         self.string_rendered = self.font.render(self.text, True, self.color)
+
+
+class Live(pygame.sprite.Sprite):  # Класс Пули
+    def __init__(self, x, y):  # Первоначальные координаты пули
+        super().__init__(hearts_group)
+        self.image = pygame.transform.scale(heart_image, (60, 60))
+        self.rect = self.image.get_rect()
+        self.rect.y = y
+        self.rect.x = x
 
 
 def start_screen():  # Главный экран
@@ -303,6 +313,11 @@ while running:
         player = Player()  # Создаём игрока - космический корабль
         back = BackGround(LEVELS[level][0], LEVELS[level][2])  # Создаём фон - звездное небо
 
+        x, y = 5, 5
+        for _ in range(player.lives):
+            live = Live(x, y)
+            x += 65
+
         for i in range(LEVELS[level][1]):  # Создаем нужное количество препятствий
             j = i % len(obstcl_images)
             obs = Obstacles(obstcl_images[j], LEVELS[level][2])
@@ -335,6 +350,7 @@ while running:
     if hits:  # Проверяем врезался ли наш игрок в препятствие
         for _ in hits:
             player.lives -= 1
+            hearts_group.remove(hearts_group.sprites()[-1])
         if player.lives == 0:  # Если жизни игрока закончились, игра заканчивается - игрок проиграл
             game_over = True
             sit = gameover_screen(player.points, 'Oh.. Try again!')
@@ -345,6 +361,7 @@ while running:
     # Отрисовываем игру
     screen.fill(pygame.Color("black"))
     sprite_group.draw(screen)
+    hearts_group.draw(screen)
     obs_group.draw(screen)
     hero_group.draw(screen)
     clock.tick(FPS)
