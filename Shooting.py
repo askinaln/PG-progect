@@ -18,8 +18,8 @@ def load_image(name, color_key=None):
 
 
 LEVELS = {  # длина поля уровня, количество препятсвий, минимальная скорость препятствия
-    1: [(1500, 4000), 10, 1],
-    2: [(1500, 8000), 15, 4]
+    1: [(1500, 4000), 7, 1],
+    2: [(1500, 8000), 10, 4]
 }
 
 pygame.init()
@@ -124,7 +124,10 @@ class Player(Sprite):  # Класс игрока (космический кор�
             if keystate[pygame.K_UP]:
                 self.speedx = -8
             if keystate[pygame.K_DOWN]:
-                self.speedx = 8
+                if self.rect.bottom <= HEIGHT:
+                    self.speedx = 8
+                else:
+                    self.speedx = 0
             self.rect.y += self.speedx
         if self.rect.right > WIDTH:
             self.rect.right = WIDTH
@@ -304,7 +307,7 @@ def gameover_screen(points, text):  # Экран окончания игры -> 
         screen.blit(line2.string_rendered, line2.intro_rect)
         if line == intro_text[0]:
             x -= 150
-        y += 40
+        y += 30
         lines.append(line1)
         lines.append(line2)
 
