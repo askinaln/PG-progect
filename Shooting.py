@@ -279,6 +279,72 @@ def start_screen():  # Главный экран
         clock.tick(FPS)
 
 
+def pause_screen():
+    intro_text = ['GAME PAUSE', "",
+                  "",
+                  'Continue', '',
+                  '',
+                  "Start over", "",
+                  "",
+                  'Go back to the main page', "",
+                  "",
+                  'Exit']
+    fon = pygame.transform.scale(load_image('background.jpg'), (WIDTH - 100, HEIGHT - 100))
+    screen.blit(fon, (50, 50))
+    font = pygame.font.SysFont('Snap ITC', 48)
+    y = 100
+    x = 600
+    lines = []
+    for line in intro_text:  # Создаем и выводим нужный текст
+        line1 = Text(font, line, x, y, pygame.Color('white'))
+        screen.blit(line1.string_rendered, line1.intro_rect)
+        x += 2
+        line2 = Text(font, line, x, y, pygame.Color('#000033'))
+        screen.blit(line2.string_rendered, line2.intro_rect)
+        if line == intro_text[0]:
+            x -= 150
+        y += 30
+        lines.append(line1)
+        lines.append(line2)
+
+    runn = True
+    while runn:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+            elif event.type == pygame.MOUSEMOTION:
+                for rect in lines:
+                    if rect.text not in intro_text[:3] and rect.color != pygame.Color(
+                            'white'):  # Если навели на текст,
+                        # на который можем нажать, меняем цвет этого текста
+                        if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
+                                rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:
+                            rect.sit = False
+                        else:
+                            rect.sit = True
+            elif event.type == pygame.MOUSEBUTTONDOWN:  # В соотвествии
+                # с нажатым текстом, определяем дальнейшие действия игры
+                for rect in lines:
+                    if rect.text not in intro_text[:3] and rect.color != pygame.Color('white'):
+                        if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
+                                rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:
+                            if rect.text == 'Continue':
+                                pause = False
+                                runn = False
+                            elif rect.text == 'Start over':
+                                return 'over'
+                            elif rect.text == 'Go back to the main page':
+                                return 'new'
+                            elif rect.text == 'Exit':
+                                terminate()
+        screen.blit(fon, (50, 50))
+        for rect in lines:
+            rect.update()
+            screen.blit(rect.string_rendered, rect.intro_rect)
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
 def gameover_screen(points, text):  # Экран окончания игры -> Нужно вывести количество набранных за игру очков и
     # текст прошел или не прошел игрок уровень
     intro_text = ['GAME OVER', "",
@@ -292,7 +358,6 @@ def gameover_screen(points, text):  # Экран окончания игры -> 
                   'Go back to the main page', "",
                   "",
                   'Exit']
-
     fon = pygame.transform.scale(load_image('splashscreen.jpg'), screen_size)
     screen.blit(fon, (0, 0))
     font = pygame.font.SysFont('Snap ITC', 48)
@@ -346,6 +411,11 @@ def gameover_screen(points, text):  # Экран окончания игры -> 
         clock.tick(FPS)
 
 
+def update_music():
+    for music in allgame_music:
+        music.stop()  # Останавливаем музыкy
+
+
 def terminate():
     pygame.quit()
     sys.exit()
@@ -360,8 +430,6 @@ game_over = True  # Переменная о состоянии игры, есл�
 running = True
 while running:
     if game_over:  # Если игра только началась/перезапускается обновляем все элементы игры
-        allgame_music[2].stop()  # Останавливаем музыку конца игры
-        allgame_music[0].play(loops=-1)  # Включаем музыку главного экрана
 
         sprite_group = SpriteGroup()
         text_group = SpriteGroup()
@@ -372,6 +440,8 @@ while running:
         prt_group = SpriteGroup()
 
         if screen_need:  # Если игрок снова выбирает уровень
+            update_music()
+            allgame_music[0].play(loops=-1)  # Включаем музыку главного экрана
             level = start_screen()
             screen_need = False
 
@@ -390,7 +460,7 @@ while running:
             j = i % len(obstcl_images)
             obs = Obstacles(obstcl_images[j], LEVELS[level][2])
         game_over = False
-        allgame_music[0].stop()  # Останавливаем музыку главного экрана
+        update_music()
         allgame_music[1].play(loops=-1)  # Включаем музыку игры
 
     for event in pygame.event.get():
@@ -400,7 +470,14 @@ while running:
             if event.key == pygame.K_SPACE:
                 player.upbull()
             if event.key == pygame.K_q:
-                pause = not pause
+                if not pause:
+                    h = pause_screen()
+                    if h is not None:
+                        game_over = True
+                        if h == 'new':
+                            screen_need = True
+                else:
+                    pause = not pause
 
     if not pause:
         # Обновляем все группы спрайтов
@@ -411,8 +488,8 @@ while running:
         prt_group.update()
 
         if back.rect.y == 0 and player.rect.y <= 0:  # Игрок выиграл
+            update_music()
             pobeda_sound.play()  # Звук победы
-            allgame_music[1].stop()  # Останавливаем музыку игры
             allgame_music[2].play(loops=-1)  # Включаем музыку конечной заставки
             gameover_screen(player.points, 'Happy! You have passed this level!')
 
@@ -436,7 +513,7 @@ while running:
                 player.lives -= 1
                 hearts_group.remove(hearts_group.sprites()[-1])
             if player.lives == 0:  # Если жизни игрока закончились, игра заканчивается - игрок проиграл
-                allgame_music[1].stop()  # Останавливаем музыку игры
+                update_music()
                 allgame_music[2].play(loops=-1)  # Включаем музыку конечной заставки
                 gameover_sound.play()  # музыка проигрыша
                 game_over = True
