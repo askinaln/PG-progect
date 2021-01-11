@@ -2,6 +2,7 @@ import pygame
 import os
 import sys
 import random
+from os import path
 
 
 def load_image(name, color_key=None):
@@ -33,7 +34,22 @@ obstcl_images = [load_image('planet2.png'), load_image('meteor.png'), load_image
 bullet_image = load_image('bullet.png')  # Фото пули
 heart_image = load_image('heart.png')  # Фото сердца - жизней
 fire_image = load_image("bullet.png")  # Фото частиц взрыва
-vsp_image = load_image('vspishka.png')
+vsp_image = load_image('vspishka.png')  # Фото для "обломков" при столкновении корабля
+
+# Загружаем музыку
+snd_dir = path.join(path.dirname(__file__), 'snd')
+upbull_sound = pygame.mixer.Sound(path.join(snd_dir, 'vistrel.wav'))
+boom_sound = pygame.mixer.Sound(path.join(snd_dir, 'boom.wav'))
+gameover_sound = pygame.mixer.Sound(path.join(snd_dir, 'proigrish.wav'))
+stolk_sound = pygame.mixer.Sound(path.join(snd_dir, 'stolknoven.wav'))
+pobeda_sound = pygame.mixer.Sound(path.join(snd_dir, 'vinner.wav'))
+
+allgame_music = []  # Список песен для начальной заставки (индекс 0),
+# для игры (индекс 1), для конечной заставки(индекс 2)
+allgame_music.append(pygame.mixer.Sound(path.join(snd_dir, 'nach.mp3')))
+allgame_music.append(pygame.mixer.Sound(path.join(snd_dir, 'allgamemusic.ogg')))
+allgame_music.append(pygame.mixer.Sound(path.join(snd_dir, 'over.ogg')))
+pygame.mixer.music.set_volume(0.6)
 
 
 class SpriteGroup(pygame.sprite.Group):
@@ -119,6 +135,7 @@ class Player(Sprite):  # Класс игрока (космический кор�
         bullet = Bullet(self.rect.centerx, self.rect.top)
         sprite_group.add(bullet)
         bull_group.add(bullet)
+        upbull_sound.play()  # звук выстрела
 
 
 class Bullet(pygame.sprite.Sprite):  # Класс Пули
@@ -317,7 +334,7 @@ def gameover_screen(points, text):  # Экран окончания игры -> 
                             elif rect.text == 'Go back to the main page':
                                 return 'new'
                             elif rect.text == 'Exit':
-                                pygame.quit()
+                                terminate()
         screen.blit(fon, (0, 0))
         for rect in lines:
             rect.update()
@@ -336,9 +353,13 @@ clock = pygame.time.Clock()
 pause = False
 screen_need = True  # Переменная указывающая нужен ли выбор уровня
 game_over = True  # Переменная о состоянии игры, если игрок умер нужно обновляться
+
 running = True
 while running:
     if game_over:  # Если игра только началась/перезапускается обновляем все элементы игры
+        allgame_music[2].stop()  # Останавливаем музыку конца игры
+        allgame_music[0].play(loops=-1)  # Включаем музыку главного экрана
+
         sprite_group = SpriteGroup()
         text_group = SpriteGroup()
         obs_group = SpriteGroup()
@@ -366,6 +387,8 @@ while running:
             j = i % len(obstcl_images)
             obs = Obstacles(obstcl_images[j], LEVELS[level][2])
         game_over = False
+        allgame_music[0].stop()  # Останавливаем музыку главного экрана
+        allgame_music[1].play(loops=-1)  # Включаем музыку игры
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -385,6 +408,9 @@ while running:
         prt_group.update()
 
         if back.rect.y == 0 and player.rect.y <= 0:  # Игрок выиграл
+            pobeda_sound.play()  # Звук победы
+            allgame_music[1].stop()  # Останавливаем музыку игры
+            allgame_music[2].play(loops=-1)  # Включаем музыку конечной заставки
             gameover_screen(player.points, 'Happy! You have passed this level!')
 
         proverka_bullet = pygame.sprite.groupcollide(obs_group, bull_group, True,
@@ -392,6 +418,7 @@ while running:
         if proverka_bullet:  # Если попали, то нужно создать новые препятствия вместо удаленных
             for obs in proverka_bullet:
                 create_particles((obs.rect.x + 5, obs.rect.y + 5), fire_image)
+                boom_sound.play()  # звук взрыва
             for _ in range(len(proverka_bullet)):
                 obs_group.add(Obstacles(obstcl_images[random.randrange(len(obstcl_images))], LEVELS[level][2]))
                 player.points += 10  # зачисляем игроку очки, за каждое препятствие 10 очков
@@ -402,9 +429,13 @@ while running:
         if hits:  # Проверяем врезался ли наш игрок в препятствие
             create_particles((player.rect.x + 10, player.rect.y + 10), vsp_image)
             for _ in hits:
+                stolk_sound.play()  # Звук столкновения
                 player.lives -= 1
                 hearts_group.remove(hearts_group.sprites()[-1])
             if player.lives == 0:  # Если жизни игрока закончились, игра заканчивается - игрок проиграл
+                allgame_music[1].stop()  # Останавливаем музыку игры
+                allgame_music[2].play(loops=-1)  # Включаем музыку конечной заставки
+                gameover_sound.play()  # музыка проигрыша
                 game_over = True
                 sit = gameover_screen(player.points, 'Oh.. Try again!')
                 if sit == 'new':  # Если sit == 'new', то игрок выбрал вернуться на главную страницу ->
