@@ -270,7 +270,7 @@ def start_screen():  # Главный экран
                             elif rect.text == 'Advanced level':
                                 return 2
                             elif rect.text == 'Exit':
-                                pygame.quit()
+                                terminate()
         screen.blit(fon, (0, 0))
         for rect in lines:
             rect.update()
@@ -311,7 +311,7 @@ def pause_screen():  # Экран паузы
     while runn:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
+                terminate()
             elif event.type == pygame.MOUSEMOTION:
                 for rect in lines:
                     if rect.text not in intro_text[:3] and rect.color != pygame.Color(
@@ -380,7 +380,7 @@ def gameover_screen(points, text):  # Экран окончания игры -> 
     while runn:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
+                terminate()
             elif event.type == pygame.MOUSEMOTION:
                 for rect in lines:
                     if rect.text not in intro_text[:9] and rect.color != pygame.Color(
