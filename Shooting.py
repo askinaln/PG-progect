@@ -3,6 +3,7 @@ import os
 import sys
 import random
 from os import path
+import sqlite3
 
 
 def load_image(name, color_key=None):
@@ -43,7 +44,6 @@ boom_sound = pygame.mixer.Sound(path.join(snd_dir, 'boom.wav'))
 gameover_sound = pygame.mixer.Sound(path.join(snd_dir, 'proigrish.wav'))
 stolk_sound = pygame.mixer.Sound(path.join(snd_dir, 'stolknoven.wav'))
 pobeda_sound = pygame.mixer.Sound(path.join(snd_dir, 'vinner.wav'))
-
 allgame_music = []  # Список песен для начальной заставки (индекс 0),
 # для игры (индекс 1), для конечной заставки(индекс 2)
 allgame_music.append(pygame.mixer.Sound(path.join(snd_dir, 'nach.mp3')))
@@ -186,7 +186,7 @@ class Live(pygame.sprite.Sprite):  # Класс Пули
         self.rect.x = x
 
 
-class Particle(pygame.sprite.Sprite):
+class Particle(pygame.sprite.Sprite):  # Класс для вспышек, взрывов при столкновении спрайтов
     def __init__(self, pos, dx, dy, image):
         super().__init__(prt_group)
 
@@ -210,7 +210,7 @@ class Particle(pygame.sprite.Sprite):
             self.kill()
 
 
-def create_particles(position, image):
+def create_particles(position, image):  # Создание взрывов
     # количество создаваемых частиц
     particle_count = 20
     # возможные скорости
@@ -279,7 +279,7 @@ def start_screen():  # Главный экран
         clock.tick(FPS)
 
 
-def pause_screen():
+def pause_screen():  # Экран паузы
     intro_text = ['GAME PAUSE', "",
                   "",
                   'Continue', '',
@@ -411,9 +411,24 @@ def gameover_screen(points, text):  # Экран окончания игры -> 
         clock.tick(FPS)
 
 
-def update_music():
+def resultupdate(level, points):  # База данных со всеми результами всех игр,
+    # {id - номер игры, level - уровень, result - очки набранные за игру}
+    if level == 1:
+        ur = 'easy'
+    else:
+        ur = 'advanced'
+    con = sqlite3.connect('rating.db')
+    cur = con.cursor()
+
+    cur.execute(f""" INSERT INTO Counter(level,result) VALUES('{ur}',{points}) """)
+
+    con.commit()
+    con.close()
+
+
+def update_music():  # Останавливаем музыкy
     for music in allgame_music:
-        music.stop()  # Останавливаем музыкy
+        music.stop()
 
 
 def terminate():
@@ -491,7 +506,12 @@ while running:
             update_music()
             pobeda_sound.play()  # Звук победы
             allgame_music[2].play(loops=-1)  # Включаем музыку конечной заставки
-            gameover_screen(player.points, 'Happy! You have passed this level!')
+            resultupdate(level, player.points)  # Внесение результатов в БД
+            sit = gameover_screen(player.points, 'Happy! You have passed this level!')
+            if sit == 'new':  # Если sit == 'new', то игрок выбрал вернуться на главную страницу ->
+                # уровень выбирается заново; если sit is None, то игрок начал заново или вышел из игры
+                screen_need = True
+            game_over = True
 
         proverka_bullet = pygame.sprite.groupcollide(obs_group, bull_group, True,
                                                      True)  # Проверяем попала ли пуля в препятствие
@@ -517,6 +537,7 @@ while running:
                 allgame_music[2].play(loops=-1)  # Включаем музыку конечной заставки
                 gameover_sound.play()  # музыка проигрыша
                 game_over = True
+                resultupdate(level, player.points)  # Внесение результатов в БД
                 sit = gameover_screen(player.points, 'Oh.. Try again!')
                 if sit == 'new':  # Если sit == 'new', то игрок выбрал вернуться на главную страницу ->
                     # уровень выбирается заново; если sit is None, то игрок начал заново или вышел из игры
