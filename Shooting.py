@@ -222,6 +222,8 @@ def create_particles(position, image):  # Создание взрывов
 def start_screen():  # Главный экран
     intro_text = ["GALAXY GAME", "",
                   "",
+                  'Rating', '',
+                  '',
                   "Easy level", "",
                   "",
                   'Advanced level', '',
@@ -242,7 +244,7 @@ def start_screen():  # Главный экран
         screen.blit(line2.string_rendered, line2.intro_rect)
         if line == intro_text[0]:
             x += 40
-        y += 40
+        y += 30
         lines.append(line1)
         lines.append(line2)
 
@@ -264,12 +266,15 @@ def start_screen():  # Главный экран
                     if rect.text != intro_text[0] and rect.color != pygame.Color('white'):
                         if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
                                 rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:  # В соотвествии
-                            # с нажатым текстом, определяем уровень игрока
-                            if rect.text == 'Easy level':
+                            # с нажатым текстом, определяем что делать дальше
+                            if rect.text == 'Rating':  # рейтинг
+                                rating_screen()
+                                continue
+                            elif rect.text == 'Easy level':  # легкий уровень
                                 return 1
-                            elif rect.text == 'Advanced level':
+                            elif rect.text == 'Advanced level':  # сложный уровень
                                 return 2
-                            elif rect.text == 'Exit':
+                            elif rect.text == 'Exit':  # выход
                                 terminate()
         screen.blit(fon, (0, 0))
         for rect in lines:
@@ -299,7 +304,7 @@ def pause_screen():  # Экран паузы
         line1 = Text(font, line, x, y, pygame.Color('white'))
         screen.blit(line1.string_rendered, line1.intro_rect)
         x += 2
-        line2 = Text(font, line, x, y, pygame.Color('#000033'))
+        line2 = Text(font, line, x, y, pygame.Color('#FFBA00'))
         screen.blit(line2.string_rendered, line2.intro_rect)
         if line == intro_text[0]:
             x -= 150
@@ -411,6 +416,75 @@ def gameover_screen(points, text):  # Экран окончания игры -> 
         clock.tick(FPS)
 
 
+def rating_screen():  # Экран Рейтинга
+    top5 = []
+    numm = 1
+    for text in top5_result():
+        top5.append(str(numm) + ' ' + ' '.join([str(ls) for ls in text]))
+        top5 += ['', '']
+        numm += 1
+
+    intro_text = ['RATING', "",
+                  "",
+                  "TOP 5", "",
+                  "",
+                  *top5, "",
+                  "",
+                  'Go back to the main page', "",
+                  "",
+                  'Exit']
+
+    fon = pygame.transform.scale(load_image('background.jpg'), (WIDTH - 80, HEIGHT - 80))
+    screen.blit(fon, (50, 50))
+    font = pygame.font.SysFont('Snap ITC', 48)
+    y = 100
+    x = 600
+    lines = []
+    for line in intro_text:  # Создаем и выводим нужный текст
+        line1 = Text(font, line, x, y, pygame.Color('white'))
+        screen.blit(line1.string_rendered, line1.intro_rect)
+        x += 2
+        line2 = Text(font, line, x, y, pygame.Color('#FFBA00'))
+        screen.blit(line2.string_rendered, line2.intro_rect)
+        if line in (intro_text[0], intro_text[3]):
+            x -= 150
+        y += 18
+        lines.append(line1)
+        lines.append(line2)
+
+    runn = True
+    while runn:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.MOUSEMOTION:
+                for rect in lines:
+                    if rect.text not in intro_text[:-4] and rect.color != pygame.Color(
+                            'white'):  # Если навели на текст,
+                        # на который можем нажать, меняем цвет этого текста
+                        if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
+                                rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:
+                            rect.sit = False
+                        else:
+                            rect.sit = True
+            elif event.type == pygame.MOUSEBUTTONDOWN:  # В соотвествии
+                # с нажатым текстом, определяем дальнейшие действия игры
+                for rect in lines:
+                    if rect.text not in intro_text[:-4] and rect.color != pygame.Color('white'):
+                        if rect.intro_rect.left <= event.pos[0] <= rect.intro_rect.right and \
+                                rect.intro_rect.top <= event.pos[1] <= rect.intro_rect.bottom:
+                            if rect.text == 'Go back to the main page':
+                                return
+                            elif rect.text == 'Exit':
+                                terminate()
+        screen.blit(fon, (50, 50))
+        for rect in lines:
+            rect.update()
+            screen.blit(rect.string_rendered, rect.intro_rect)
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
 def resultupdate(level, points):  # База данных со всеми результами всех игр,
     # {id - номер игры, level - уровень, result - очки набранные за игру}
     if level == 1:
@@ -424,6 +498,19 @@ def resultupdate(level, points):  # База данных со всеми рез
 
     con.commit()
     con.close()
+
+
+def top5_result():  # функция получения топа пяти лучших результатов
+    con = sqlite3.connect('rating.db')
+    cur = con.cursor()
+
+    result = cur.execute("""SELECT level, result FROM Counter""").fetchall()
+    result.sort(key=lambda x: x[1], reverse=True)
+
+    con.commit()
+    con.close()
+
+    return result[:5]
 
 
 def update_music():  # Останавливаем музыкy
